@@ -30,4 +30,4 @@ webform:
 
 launch:
   type: binary
-  command: /go/bin/chaos -d ${domain} -o outputs/results.txt
+  command: /go/bin/chaos -d ${domain}
