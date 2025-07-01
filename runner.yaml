@@ -1,7 +1,9 @@
 runner:
   name: Chaos
-  description: Discover exposed assets on the internet using multiple search engines.
+  description: Get subdomains for a domain.
   version: 0.0.1
+
+memory: 2048
 
 build:
   commands: |
