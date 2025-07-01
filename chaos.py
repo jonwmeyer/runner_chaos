@@ -3,40 +3,30 @@
 import sys
 import os
 import subprocess
-import re
 from pathlib import Path
 from datetime import datetime
 
 def main():
-    # Check if URL argument is provided
+    """Entry point: Validate input, check dependencies, run scan, and handle results."""
     if len(sys.argv) < 2:
-        print("[!] Error: Please provide a URL to scan")
-        print("Usage: python3 nuclei_scanner.py https://example.com")
+        print("[!] Error: Please provide a domain to scan")
+        print("Usage: python3 chaos.py example.com")
         sys.exit(1)
     
-    url = sys.argv[1]
-    
-    # Validate URL format (basic check)
-    url_pattern = re.compile(r'^https?://')
-    if not url_pattern.match(url):
-        print("[!] Error: Please provide a valid URL starting with http:// or https://")
-        print("Usage: python3 nuclei_scanner.py https://example.com")
+    domain = sys.argv[1]
+
+    os.environ["PDCP_API_KEY"] = "e95c8bcb-230b-4de0-84e5-d23e6bf35425" # TODO: remove this after testing       
+
+    if not check_chaos_installed():
+        print("[!] Error: chaos is not installed or not in PATH")
+        print("Please install chaos first: https://chaos.projectdiscovery.io/chaos/get-started/")
         sys.exit(1)
     
-    # Check if nuclei is installed
-    if not check_nuclei_installed():
-        print("[!] Error: nuclei is not installed or not in PATH")
-        print("Please install nuclei first: https://nuclei.projectdiscovery.io/nuclei/get-started/")
-        sys.exit(1)
-    
-    # Activate virtual environment if it exists
     activate_venv()
     
-    # Run the nuclei scan
-    print(f"[*] Starting Nuclei scan for: {url}")
-    exit_code = run_nuclei_scan_and_save(url)
+    print(f"[*] Starting chaos domain scan for: {domain}")
+    exit_code = run_chaos_scan_and_save(domain)
     
-    # Check the exit code
     if exit_code == 0:
         print("[+] Scan completed successfully")
     else:
@@ -44,11 +34,11 @@ def main():
     
     sys.exit(exit_code)
 
-def check_nuclei_installed():
-    """Check if nuclei is installed and available in PATH"""
+def check_chaos_installed():
+    """Return True if chaos is installed and available in PATH."""
     try:
         result = subprocess.run(
-            ["nuclei", "-version"],
+            ["/go/bin/chaos", "-version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -59,41 +49,30 @@ def check_nuclei_installed():
         return False
 
 def activate_venv():
-    """Activate virtual environment if it exists"""
+    """Detect and note if a virtual environment exists."""
     venv_path = Path("venv")
     if venv_path.exists() and venv_path.is_dir():
         print("[*] Virtual environment found")
-        # Note: In Python, we can't directly activate a venv like in bash
-        # The venv should be activated before running this script
-        # or we can modify the Python path to include the venv
         venv_python = venv_path / "bin" / "python3"
         if venv_python.exists():
             print("[*] Using virtual environment Python")
-            # We could potentially restart with the venv Python, but for now
-            # we'll just note that it exists
         else:
             print("[*] Virtual environment found but Python not detected")
 
-def run_nuclei_scan_and_save(url):
-    """Run nuclei scan and save results to file"""
+def run_chaos_scan_and_save(domain):
+    """Run chaos scan and save results to a timestamped file."""
     try:
-        # Call run_nuclei_scan with the URL
-        scan_output = run_nuclei_scan(url)
-        
+        scan_output = run_chaos_scan(domain)
         if scan_output is None:
-            print("[!] Nuclei scan failed or returned no output")
+            print("[!] chaos scan failed or returned no output")
             return 1
-            
-        # Create outputs directory if it doesn't exist
+        
         output_dir = "outputs"
         os.makedirs(output_dir, exist_ok=True)
-        
-        # Generate timestamp-based filename
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]  # Remove last 3 digits to get milliseconds
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
         filename = f"{timestamp}-scan.txt"
         filepath = os.path.join(output_dir, filename)
 
-        # Save the scan output to file
         with open(filepath, "w") as f:
             f.write(scan_output)
         print(f"[*] Scan results saved as {filepath}")
@@ -103,61 +82,43 @@ def run_nuclei_scan_and_save(url):
         print(f"[!] Error running scan: {e}", file=sys.stderr)
         return 1
 
-def run_nuclei_scan(url):
-    """Run nuclei scan on the given URL"""
-    # Build the command with absolute minimal settings
+def run_chaos_scan(domain):
+    """Run chaos scan on the given domain and return its output as a string, or None on error."""
     command = [
-        "nuclei",
-        "-u", url
+        "/go/bin/chaos",
+        "-d", domain,
+        "-silent"
     ]
-    
-    # Debug: Print the exact command being executed
-    print(f"[DEBUG] Executing command: {' '.join(command)}")
-    
+    print(f"[*] Executing: {' '.join(command)}")
     try:
-        # Run the command with very short timeout
         result = subprocess.run(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,  # Return output as string, not bytes
-            timeout=600,  # Very long timeout
-            check=False  # Don't raise CalledProcessError on non-zero exit
+            text=True,
+            timeout=300,
+            check=False
         )
-        
-        print("Nuclei output:")
-        print(result.stdout)
-        
-        # Check if process was killed by SIGKILL (exit code -9)
         if result.returncode == -9:
-            print("[!] Warning: Nuclei process was killed by SIGKILL (likely due to memory/resource limits)")
-            print("[!] This indicates the process was using too much memory or CPU")
-            # Return partial output if available
+            print("[!] Warning: chaos process was killed by SIGKILL (likely due to memory/resource limits)")
             if result.stdout.strip():
                 return result.stdout
-            else:
-                return None
-      
-        
-        # Check for other non-zero exit codes
+            return None
         if result.returncode != 0:
-            print(f"[!] Nuclei exited with code {result.returncode}")
+            print(f"[!] chaos exited with code {result.returncode}")
             if result.stderr:
-                print("Nuclei error output:")
+                print("chaos error output:")
                 print(result.stderr)
-            # Return output even if exit code is non-zero, as some findings might be found
             return result.stdout if result.stdout.strip() else None
-        
         return result.stdout
-        
     except subprocess.TimeoutExpired:
-        print("[!] Nuclei scan timed out after 25 seconds")
+        print("[!] chaos scan timed out")
         return None
     except FileNotFoundError:
-        print("[!] Error: nuclei command not found. Please ensure nuclei is installed and in PATH")
+        print("[!] Error: chaos command not found. Please ensure chaos is installed and in PATH")
         return None
     except Exception as e:
-        print(f"[!] Unexpected error running nuclei: {e}")
+        print(f"[!] Unexpected error running chaos: {e}")
         return None
 
 if __name__ == "__main__":

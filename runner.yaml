@@ -30,4 +30,4 @@ webform:
 
 launch:
   type: binary
-  command: /go/bin/chaos -d ${domain}
+  command: python3 chaos.py ${domain}
