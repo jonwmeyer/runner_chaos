@@ -22,10 +22,10 @@ build:
     echo "END: Building Uncover"
 
 webform:
-  - name: url
-    prompt: URL
+  - name: domain
+    prompt: DOMAIN
     type: text
 
 launch:
   type: binary
-  command: /go/bin/chaos -h
+  command: /go/bin/chaos -d ${domain} -o outputs/results.txt
