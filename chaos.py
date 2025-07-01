@@ -87,6 +87,7 @@ def run_chaos_scan(domain):
     command = [
         "/go/bin/chaos",
         "-d", domain,
+        "-json",
         "-silent"
     ]
     print(f"[*] Executing: {' '.join(command)}")
