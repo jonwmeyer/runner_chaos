@@ -15,7 +15,7 @@ def main():
     
     domain = sys.argv[1]
 
-    os.environ["PDCP_API_KEY"] = "e95c8bcb-230b-4de0-84e5-d23e6bf35425" # TODO: remove this after testing       
+    #os.environ["PDCP_API_KEY"] = "" # TODO: remove this after testing       
 
     if not check_chaos_installed():
         print("[!] Error: chaos is not installed or not in PATH")
